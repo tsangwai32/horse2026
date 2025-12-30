@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馬上過關 - 2026新年遊戲</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #1a1a2e;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #gameCanvas {
+            border: 4px solid #ffd700;
+            border-radius: 8px;
+            background-color: #000;
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        .game-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #ffd700;
+            border-radius: 8px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s, visibility 0.5s;
+            z-index: 10;
+        }
+        
+        .game-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .btn {
+            background-color: #ff4500;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+            margin-top: 20px;
+        }
+        
+        .btn:hover {
+            background-color: #ff6347;
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+        }
+        
+        .game-title {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: #ffd700;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 5;
+        }
+        
+        .ui-container {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            z-index: 5;
+        }
+        
+        .ui-item {
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #ffd700;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        /* 橫屏模式樣式 */
+        @media screen and (orientation: landscape) and (max-width: 900px) {
+            .game-title {
+                font-size: 20px;
+                top: 10px;
+            }
+            
+            .ui-container {
+                top: 40px;
+            }
+            
+            .ui-item {
+                font-size: 14px;
+                padding: 6px 10px;
+            }
+        }
+        
+        /* 豎屏模式樣式 */
+        @media screen and (orientation: portrait) {
+            .game-container {
+                justify-content: flex-start;
+                padding-top: 60px;
+            }
+            
+            #gameCanvas {
+                width: 100%;
+                height: auto;
+                max-height: calc(100% - 120px);
+            }
+            
+            .game-title {
+                font-size: 28px;
+                top: 10px;
+            }
+            
+            .ui-container {
+                top: 50px;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .ui-item {
+                font-size: 18px;
+                padding: 10px 15px;
+            }
+        }
+        
+        /* 操作提示 */
+        .control-tips {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: #ffd700;
+            font-size: 16px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="game-title">馬上過關</h1>
+        
+        <div class="ui-container">
+            <div class="ui-item" id="scoreDisplay">分數: 0</div>
+            <div class="ui-item" id="livesDisplay">生命: 3</div>
+        </div>
+        
+        <canvas id="gameCanvas" width="800" height="1200"></canvas>
+        
+        <div id="startScreen" class="game-overlay visible">
+            <h2 style="font-size: 40px; font-weight: bold; margin-bottom: 20px;">馬上過關</h2>
+            <p style="font-size: 20px; margin-bottom: 30px;">操作財神與馬，跳上平台收集祝福！</p>
+            <p style="font-size: 16px; margin-bottom: 10px;">← → 移動 | 空白鍵/↑ 跳躍</p>
+            <button id="startBtn" class="btn">開始遊戲</button>
+        </div>
+        
+        <div id="gameOverScreen" class="game-overlay">
+            <h2 style="font-size: 40px; font-weight: bold; margin-bottom: 20px;">遊戲結束</h2>
+            <p id="finalScore" style="font-size: 24px; margin-bottom: 30px;">分數：0</p>
+            <button id="restartBtn" class="btn">再玩一次</button>
+        </div>
+        
+        <div id="winScreen" class="game-overlay">
+            <h2 style="font-size: 45px; font-weight: bold; margin-bottom: 20px;">恭喜過關!</h2>
+            <p style="font-size: 28px; margin-bottom: 30px;">FOTOCINE祝你2026 馬到功成!</p>
+            <button id="playAgainBtn" class="btn">再玩一次</button>
+        </div>
+        
+        <div class="control-tips">← → 移動 | 空白鍵/↑ 跳躍</div>
+    </div>
+
+    <script>
+        // 遊戲初始化
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 調整canvas大小以適應螢幕
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const maxWidth = container.clientWidth;
+            const scale = maxWidth / canvas.width;
+            
+            if (scale < 1) {
+                canvas.style.width = `${canvas.width * scale}px`;
+                canvas.style.height = `${canvas.height * scale}px`;
+            } else {
+                canvas.style.width = '';
+                canvas.style.height = '';
+            }
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        
+        // 遊戲資源
+        const gameAssets = {
+            player: null,
+            background: null,
+            platform: null,
+            loaded: false
+        };
+        
+        // 加載玩家圖像
+        function loadPlayerImage() {
+            const playerImage = new Image();
+            playerImage.src = 'https://p11-flow-imagex-download-sign.byteimg.com/tos-cn-i-a9rns2rl98/95ac9078fb4a4d398386db71fc891044.png~tplv-a9rns2rl98-24:720:720.png?rcl=2025123011295320E601E2BCDB27F1FA59&rk3s=8e244e95&rrcfp=8a172a1a&x-expires=1767670193&x-signature=SISmzfzeh3NxadKNereDNq3%2B1wI%3D';
+            return playerImage;
+        }
+        
+        // 加載背景圖像
+        function loadBackgroundImage() {
+            const backgroundImage = new Image();
+            backgroundImage.src = 'https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/3efe0e85e3fb46a9815618cef12ab61b~tplv-a9rns2rl98-image.image?rcl=20251230112402D0D1E800555509EEAF89&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1769657067&x-signature=r16mFPYgC3FY4rOneIIV4xGdlfU%3D';
+            return backgroundImage;
+        }
+        
+        // 創建平台圖像
+        function createPlatformImage() {
+            const platformCanvas = document.createElement('canvas');
+            platformCanvas.width = 120;
+            platformCanvas.height = 20;
+            const platformCtx = platformCanvas.getContext('2d');
+            
+            // 平台底色（漸變效果）
+            const gradient = platformCtx.createLinearGradient(0, 0, 0, 20);
+            gradient.addColorStop(0, '#ff6347');
+            gradient.addColorStop(1, '#8b0000');
+            platformCtx.fillStyle = gradient;
+            platformCtx.fillRect(0, 0, 120, 20);
+            
+            // 平台裝飾
+            platformCtx.lineWidth = 2;
+            platformCtx.strokeStyle = '#ffd700';
+            platformCtx.strokeRect(0, 0, 120, 20);
+            
+            // 裝飾圖案
+            platformCtx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+            for (let i = 0; i < 5; i++) {
+                const x = 10 + i * 22;
+                platformCtx.fillRect(x, 8, 10, 4);
+            }
+            
+            return platformCanvas;
+        }
+        
+        // 加載遊戲資源
+        function loadGameAssets() {
+            try {
+                gameAssets.player = loadPlayerImage();
+                gameAssets.background = loadBackgroundImage();
+                gameAssets.platform = createPlatformImage();
+                
+                let loadedCount = 0;
+                const totalAssets = 2;
+                
+                function onAssetLoaded() {
+                    loadedCount++;
+                    if (loadedCount >= totalAssets) {
+                        gameAssets.loaded = true;
+                        drawGame();
+                    }
+                }
+                
+                gameAssets.player.onload = onAssetLoaded;
+                gameAssets.background.onload = onAssetLoaded;
+                
+                gameAssets.player.onerror = () => onAssetLoaded();
+                gameAssets.background.onerror = () => onAssetLoaded();
+                
+                if (gameAssets.player.complete) onAssetLoaded();
+                if (gameAssets.background.complete) onAssetLoaded();
+                
+            } catch (error) {
+                console.error('加載資源時出錯:', error);
+                gameAssets.loaded = true;
+            }
+        }
+        
+        // 祝福詞列表
+        const blessings = [
+            '馬上發財', '馬上進步', '馬上升職', '馬上健康',
+            '馬上幸福', '馬上好運', '馬上成功', '馬上平安',
+            '馬上快樂', '馬上吉祥', '馬上聰明', '馬上青春'
+        ];
+        
+        // 遊戲狀態
+        const gameState = {
+            started: false,
+            over: false,
+            won: false,
+            score: 0,
+            lives: 3,
+            collectedBlessings: [],
+            scrollY: 0,
+            gameSpeed: 1
+        };
+        
+        // 玩家設定
+        const player = {
+            x: 100,
+            y: 1000,
+            width: 100,
+            height: 100,
+            speed: 6,
+            jumpPower: 20,
+            velocityY: 0,
+            isJumping: false,
+            direction: 1
+        };
+        
+        // 平台配置
+        const platforms = [];
+        const platformConfig = {
+            minWidth: 100,
+            maxWidth: 200,
+            minGap: 80,
+            maxGap: 150,
+            minHeight: 30,
+            maxHeight: 80,
+            startY: 1000, // 起點在畫面底部
+            endPlatformY: -1300, // 終點平台固定位置（最頂端）
+            maxPlatformHeight: -1200 // 普通平台最高位置（終點之下）
+        };
+        
+        // 按鍵控制
+        const keys = {
+            left: false,
+            right: false,
+            up: false
+        };
+        
+        // 初始化平台 - 確保終點在最頂端，所有平台都可踏
+        function initPlatforms() {
+            platforms.length = 0;
+            
+            // 起始平台（底部）
+            platforms.push({
+                x: 0,
+                y: platformConfig.startY,
+                width: canvas.width,
+                height: 20,
+                blessing: '',
+                collected: true
+            });
+            
+            // 生成普通平台（確保都在終點之下）
+            let currentY = platformConfig.startY;
+            while (currentY > platformConfig.maxPlatformHeight) {
+                const width = Math.random() * (platformConfig.maxWidth - platformConfig.minWidth) + platformConfig.minWidth;
+                const gap = Math.random() * (platformConfig.maxGap - platformConfig.minGap) + platformConfig.minGap;
+                const height = Math.random() * (platformConfig.maxHeight - platformConfig.minHeight) + platformConfig.minHeight;
+                
+                currentY -= height + gap;
+                
+                // 確保平台不會超過最高限制
+                if (currentY < platformConfig.maxPlatformHeight) {
+                    break;
+                }
+                
+                // 確保平台在畫布範圍內，並且有足夠的寬度讓玩家踏上
+                const x = Math.random() * (canvas.width - width - 50) + 25;
+                
+                // 隨機選擇祝福詞（每個平台都有祝福詞）
+                let availableBlessings = blessings.filter(b => !platforms.some(p => p.blessing === b));
+                let blessing = '';
+                if (availableBlessings.length > 0) {
+                    blessing = availableBlessings[Math.floor(Math.random() * availableBlessings.length)];
+                } else {
+                    // 如果祝福詞用完了，隨機選一個
+                    blessing = blessings[Math.floor(Math.random() * blessings.length)];
+                }
+                
+                platforms.push({
+                    x,
+                    y: currentY,
+                    width,
+                    height: 20,
+                    blessing,
+                    collected: false
+                });
+            }
+            
+            // 終點平台（固定在最頂端，確保在所有平台之上）
+            platforms.push({
+                x: canvas.width / 2 - 100,
+                y: platformConfig.endPlatformY,
+                width: 200,
+                height: 20,
+                blessing: '終點',
+                collected: false
+            });
+            
+            console.log(`生成了 ${platforms.length} 個平台，終點平台位置: ${platformConfig.endPlatformY}`);
+        }
+        
+        // 重置玩家位置
+        function resetPlayer() {
+            player.x = 100;
+            player.y = platformConfig.startY - player.height;
+            player.velocityY = 0;
+            player.isJumping = false;
+            player.direction = 1;
+            
+            keys.left = false;
+            keys.right = false;
+            keys.up = false;
+        }
+        
+        // 重置遊戲
+        function resetGame() {
+            // 重置遊戲狀態
+            gameState.started = false;
+            gameState.over = false;
+            gameState.won = false;
+            gameState.score = 0;
+            gameState.lives = 3;
+            gameState.collectedBlessings = [];
+            gameState.scrollY = 0;
+            gameState.gameSpeed = 1;
+            
+            // 重新初始化
+            initPlatforms();
+            resetPlayer();
+            
+            // 隱藏覆蓋層
+            document.getElementById('startScreen').classList.add('visible');
+            document.getElementById('gameOverScreen').classList.remove('visible');
+            document.getElementById('winScreen').classList.remove('visible');
+        }
+        
+        // 更新玩家位置 - 優化碰撞檢測，確保每個平台都能踏上去
+        function updatePlayer() {
+            if (!gameState.started || gameState.over || gameState.won) return;
+            
+            // 重力
+            player.velocityY += 0.5 * gameState.gameSpeed;
+            player.y += player.velocityY;
+            
+            // 左右移動
+            if (keys.left && !keys.right) {
+                player.x -= player.speed;
+                player.direction = -1;
+            } else if (keys.right && !keys.left) {
+                player.x += player.speed;
+                player.direction = 1;
+            }
+            
+            // 邊界限制
+            if (player.x < 0) player.x = 0;
+            else if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+            
+            // 平台碰撞檢測 - 優化版本，更寬鬆的判定條件
+            let onPlatform = false;
+            let closestPlatform = null;
+            let closestDistance = Infinity;
+            
+            // 第一步：找到玩家下方最近的平台
+            platforms.forEach(platform => {
+                const platformRect = {
+                    x: platform.x,
+                    y: platform.y + gameState.scrollY,
+                    width: platform.width,
+                    height: platform.height
+                };
+                
+                // 檢查玩家是否在平台上方，並且水平重疊
+                const isHorizontallyOverlapping = 
+                    player.x + player.width > platformRect.x + 5 &&  // 放寬左邊判定
+                    player.x < platformRect.x + platformRect.width - 5; // 放寬右邊判定
+                
+                // 檢查平台是否在玩家下方
+                if (isHorizontallyOverlapping && platformRect.y > player.y + player.height - 10) {
+                    const distance = platformRect.y - (player.y + player.height);
+                    if (distance >= 0 && distance < closestDistance) {
+                        closestDistance = distance;
+                        closestPlatform = platformRect;
+                    }
+                }
+            });
+            
+            // 第二步：處理與最近平台的碰撞
+            if (closestPlatform && closestDistance < player.jumpPower) {
+                // 玩家正在下落，並且距離平台很近
+                if (player.velocityY >= 0) {
+                    player.y = closestPlatform.y - player.height;
+                    player.velocityY = 0;
+                    player.isJumping = false;
+                    onPlatform = true;
+                    
+                    // 找到對應的平台數據
+                    const platformIndex = platforms.findIndex(p => 
+                        p.x === closestPlatform.x && 
+                        p.y + gameState.scrollY === closestPlatform.y
+                    );
+                    
+                    if (platformIndex >= 0) {
+                        const platform = platforms[platformIndex];
+                        // 收集祝福詞
+                        if (platform.blessing && !platform.collected) {
+                            platform.collected = true;
+                            gameState.collectedBlessings.push(platform.blessing);
+                            gameState.score += 100;
+                            showBlessingToast(platform.blessing);
+                        }
+                        
+                        // 到達終點
+                        if (platform.blessing === '終點') {
+                            gameState.won = true;
+                            document.getElementById('winScreen').classList.add('visible');
+                        }
+                    }
+                }
+            }
+            
+            // 傳統碰撞檢測（備用）
+            if (!onPlatform) {
+                platforms.forEach(platform => {
+                    const platformRect = {
+                        x: platform.x,
+                        y: platform.y + gameState.scrollY,
+                        width: platform.width,
+                        height: platform.height
+                    };
+                    
+                    const playerRect = {
+                        x: player.x,
+                        y: player.y,
+                        width: player.width,
+                        height: player.height
+                    };
+                    
+                    // 更寬鬆的碰撞判定條件
+                    if (player.velocityY >= 0 && 
+                        playerRect.y + playerRect.height <= platformRect.y + 15 && // 增加判定範圍
+                        playerRect.y + playerRect.height + player.velocityY >= platformRect.y - 5 && // 提前判定
+                        playerRect.x + playerRect.width > platformRect.x &&
+                        playerRect.x < platformRect.x + platformRect.width) {
+                        
+                        player.y = platformRect.y - playerRect.height;
+                        player.velocityY = 0;
+                        player.isJumping = false;
+                        onPlatform = true;
+                        
+                        // 收集祝福詞
+                        if (platform.blessing && !platform.collected) {
+                            platform.collected = true;
+                            gameState.collectedBlessings.push(platform.blessing);
+                            gameState.score += 100;
+                            showBlessingToast(platform.blessing);
+                        }
+                        
+                        // 到達終點
+                        if (platform.blessing === '終點') {
+                            gameState.won = true;
+                            document.getElementById('winScreen').classList.add('visible');
+                        }
+                    }
+                });
+            }
+            
+            player.isJumping = !onPlatform;
+            
+            // 畫面滾動 - 平穩滾動
+            if (player.y < canvas.height / 3 && player.velocityY < 0) {
+                gameState.scrollY -= player.velocityY * 0.8; // 減緩滾動速度，避免平台位置跳動
+            }
+            
+            // 掉落扣生命
+            if (player.y > canvas.height + 100) {
+                gameState.lives--;
+                if (gameState.lives <= 0) {
+                    gameState.over = true;
+                    document.getElementById('finalScore').textContent = `分數：${gameState.score}`;
+                    document.getElementById('gameOverScreen').classList.add('visible');
+                } else {
+                    resetPlayer();
+                }
+            }
+        }
+        
+        // 顯示祝福詞提示
+        function showBlessingToast(blessing) {
+            const toast = document.createElement('div');
+            toast.textContent = `收集到: ${blessing}`;
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background-color: #ffd700;
+                color: #8b0000;
+                padding: 10px 20px;
+                border-radius: 5px;
+                font-weight: bold;
+                z-index: 1000;
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                    document.head.removeChild(style);
+                }, 300);
+            }, 2000);
+        }
+        
+        // 繪製遊戲
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 背景
+            if (gameAssets.background) {
+                const pattern = ctx.createPattern(gameAssets.background, 'repeat');
+                ctx.fillStyle = pattern;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.fillStyle = '#8b0000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            // 平台
+            platforms.forEach(platform => {
+                const drawY = platform.y + gameState.scrollY;
+                
+                if (drawY > -50 && drawY < canvas.height + 50) {
+                    if (gameAssets.platform) {
+                        ctx.drawImage(gameAssets.platform, platform.x, drawY, platform.width, platform.height);
+                    } else {
+                        ctx.fillStyle = '#ff4500';
+                        ctx.fillRect(platform.x, drawY, platform.width, platform.height);
+                        ctx.strokeStyle = '#ffd700';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(platform.x, drawY, platform.width, platform.height);
+                    }
+                    
+                    // 祝福詞（終點文字加大）
+                    if (platform.blessing && !platform.collected) {
+                        ctx.fillStyle = '#ffd700';
+                        const fontSize = platform.blessing === '終點' ? 'bold 34px Noto Sans TC' : 'bold 24px Noto Sans TC';
+                        ctx.font = fontSize;
+                        ctx.textAlign = 'center';
+                        ctx.strokeStyle = '#8b0000';
+                        ctx.lineWidth = 3;
+                        ctx.strokeText(platform.blessing, platform.x + platform.width / 2, drawY - 10);
+                        ctx.fillText(platform.blessing, platform.x + platform.width / 2, drawY - 10);
+                    }
+                }
+            });
+            
+            // 玩家
+            if (gameAssets.player) {
+                ctx.save();
+                ctx.scale(player.direction, 1);
+                const drawX = player.direction > 0 ? player.x : player.x + player.width;
+                ctx.drawImage(
+                    gameAssets.player, 
+                    drawX * player.direction, 
+                    player.y, 
+                    player.width * player.direction, 
+                    player.height
+                );
+                ctx.restore();
+            } else {
+                ctx.fillStyle = '#ff4500';
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+            }
+            
+            // 更新UI
+            document.getElementById('scoreDisplay').textContent = `分數: ${gameState.score}`;
+            document.getElementById('livesDisplay').textContent = `生命: ${gameState.lives}`;
+            
+            // 收集的祝福詞
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 18px Noto Sans TC';
+            ctx.textAlign = 'right';
+            gameState.collectedBlessings.slice(-3).forEach((blessing, index) => {
+                ctx.fillText(blessing, canvas.width - 20, 30 + index * 25);
+            });
+        }
+        
+        // 遊戲迴圈
+        function gameLoop() {
+            updatePlayer();
+            drawGame();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // 鍵盤控制
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                keys.left = true;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                keys.right = true;
+            }
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+                keys.up = true;
+                // 跳躍
+                if (!player.isJumping && gameState.started && !gameState.over && !gameState.won) {
+                    player.velocityY = -player.jumpPower;
+                    player.isJumping = true;
+                }
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                keys.left = false;
+            }
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                keys.right = false;
+            }
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+                keys.up = false;
+            }
+        });
+        
+        // 按鈕事件
+        document.getElementById('startBtn').addEventListener('click', () => {
+            gameState.started = true;
+            document.getElementById('startScreen').classList.remove('visible');
+        });
+        
+        document.getElementById('restartBtn').addEventListener('click', resetGame);
+        document.getElementById('playAgainBtn').addEventListener('click', resetGame);
+        
+        // 初始化遊戲
+        loadGameAssets();
+        initPlatforms();
+        resetPlayer();
+        gameLoop();
+        
+        // 強制繪製一次
+        drawGame();
+        
+        console.log('遊戲初始化完成，可以正常開始');
+    </script>
+</body>
+</html>
